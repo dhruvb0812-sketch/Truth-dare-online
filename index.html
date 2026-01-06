@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&family=Poppins:wght@300;500&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap" rel="stylesheet">
 
+<!-- 🔥 Firebase v8 CDN -->
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
@@ -166,17 +167,20 @@ button.locked{
 </div>
 
 <script>
-/* 🔥 FIREBASE CONFIG */
+/* 🔥 FIREBASE CONFIG (v8 CDN) */
 firebase.initializeApp({
-  apiKey:"YOUR_API_KEY",
-  authDomain:"YOUR_PROJECT.firebaseapp.com",
-  databaseURL:"https://YOUR_PROJECT.firebaseio.com",
-  projectId:"YOUR_PROJECT"
+  apiKey: "AIzaSyCtVdlsKvMIZRVGrxIHgNig8zSf4ZzzBe8",
+  authDomain: "truth-dare-online-9aa1d.firebaseapp.com",
+  databaseURL: "https://truth-dare-online-9aa1d-default-rtdb.firebaseio.com",
+  projectId: "truth-dare-online-9aa1d",
+  storageBucket: "truth-dare-online-9aa1d.appspot.com",
+  messagingSenderId: "178326902340",
+  appId: "1:178326902340:web:60ccfad4b4595e4d1d8e11"
 });
-const db=firebase.database();
+const db = firebase.database();
 
-let playerName="",roomId="",isHost=false,rotation=0;
-let playersArr=[],spans=[];
+let playerName="", roomId="", isHost=false, rotation=0;
+let playersArr=[], spans=[];
 
 /* 🎯 DRAW WHEEL */
 function drawWheel(){
@@ -212,12 +216,12 @@ function joinRoom(){
   ref.set(true);
   ref.onDisconnect().remove();
 
-  db.ref("rooms/"+roomId+"/host").on("value",s=>{
-    isHost=s.val()===playerName;
-    spinBtn.classList.toggle("locked",!isHost);
+  db.ref("rooms/"+roomId+"/host").on("value", s => {
+    isHost = s.val() === playerName;
+    spinBtn.classList.toggle("locked", !isHost);
   });
 
-  db.ref("rooms/"+roomId+"/players").on("value",s=>{
+  db.ref("rooms/"+roomId+"/players").on("value", s => {
     playersArr=[]; players.innerHTML="";
     s.forEach(p=>{
       playersArr.push(p.key);
@@ -226,11 +230,11 @@ function joinRoom(){
     drawWheel();
   });
 
-  db.ref("rooms/"+roomId+"/spin").on("value",s=>{
+  db.ref("rooms/"+roomId+"/spin").on("value", s => {
     if(s.exists()) wheel.style.transform=`rotate(${s.val()}deg)`;
   });
 
-  db.ref("rooms/"+roomId+"/selected").on("value",s=>{
+  db.ref("rooms/"+roomId+"/selected").on("value", s => {
     spans.forEach(x=>x.classList.remove("active"));
     if(!s.exists()) return;
     const idx=playersArr.indexOf(s.val());
@@ -238,7 +242,7 @@ function joinRoom(){
     output.innerText="👉 "+s.val()+" ki turn";
   });
 
-  db.ref("rooms/"+roomId+"/chat").limitToLast(80).on("child_added",s=>{
+  db.ref("rooms/"+roomId+"/chat").limitToLast(80).on("child_added", s => {
     const d=s.val();
     chat.innerHTML+=`
       <div class="msg">
@@ -263,7 +267,7 @@ function spin(){
   rotation+=360*5 + pick*slice + slice/2;
   db.ref("rooms/"+roomId+"/spin").set(rotation);
 
-  setTimeout(()=>{
+  setTimeout(()=> {
     db.ref("rooms/"+roomId+"/selected")
       .set(playersArr[n-1-pick]);
   },4000);
@@ -273,34 +277,15 @@ function spin(){
 function sendMsg(){
   if(!msg.value.trim()) return;
   db.ref("rooms/"+roomId+"/chat").push({
-    name:playerName,text:msg.value
+    name: playerName, text: msg.value
   });
   msg.value="";
 }
-function quickEmoji(e){msg.value+=e}
+function quickEmoji(e){ msg.value+=e }
 function react(id,e){
   db.ref("rooms/"+roomId+"/chat/"+id+"/text")
     .transaction(t=>(t||"")+" "+e);
 }
-</script>
-<script type="module">
-  // Import the functions you need from the SDKs you need
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-  // TODO: Add SDKs for Firebase products that you want to use
-  // https://firebase.google.com/docs/web/setup#available-libraries
-
-  // Your web app's Firebase configuration
-  const firebaseConfig = {
-    apiKey: "AIzaSyCtVdlsKvMIZRVGrxIHgNig8zSf4ZzzBe8",
-    authDomain: "truth-dare-online-9aa1d.firebaseapp.com",
-    projectId: "truth-dare-online-9aa1d",
-    storageBucket: "truth-dare-online-9aa1d.firebasestorage.app",
-    messagingSenderId: "178326902340",
-    appId: "1:178326902340:web:60ccfad4b4595e4d1d8e11"
-  };
-
-  // Initialize Firebase
-  const app = initializeApp(firebaseConfig);
 </script>
 </body>
 </html>
