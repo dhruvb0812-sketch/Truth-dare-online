@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Truth & Dare • Multiplayer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&family=Poppins:wght@300;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap" rel="stylesheet">
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  min-height:100vh;
+  background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  font-family:Poppins,sans-serif;
+  color:#fff;
+}
+.card{
+  width:95%;max-width:460px;
+  padding:22px;border-radius:26px;
+  background:rgba(255,255,255,.08);
+  backdrop-filter:blur(16px);
+  box-shadow:0 0 40px rgba(0,255,255,.3);
+}
+h1{text-align:center;font-family:Orbitron;color:#7df9ff}
+
+input,button{
+  width:100%;padding:12px;margin:6px 0;
+  border:none;border-radius:22px;
+  background:rgba(255,255,255,.15);
+  color:#fff;outline:none;
+}
+button{
+  background:linear-gradient(135deg,#00f2fe,#4facfe);
+  color:#000;font-family:Orbitron;
+  cursor:pointer;
+}
+button.locked{
+  opacity:.5;pointer-events:none;
+}
+
+.players span{
+  display:inline-block;
+  margin:2px 4px;
+  padding:3px 8px;
+  border-radius:10px;
+  background:rgba(0,255,255,.25);
+  font-size:.75rem;
+}
+
+/* 🎯 WHEEL */
+.wheel-box{
+  position:relative;
+  width:240px;height:240px;
+  margin:15px auto;
+}
+.wheel{
+  width:100%;height:100%;
+  border-radius:50%;
+  border:6px solid rgba(255,255,255,.3);
+  transition:transform 4s cubic-bezier(.17,.67,.25,1.2);
+  position:relative;
+  overflow:hidden;
+}
+.wheel span{
+  position:absolute;
+  left:50%;top:50%;
+  transform-origin:0% 0%;
+  font-size:.7rem;
+  white-space:nowrap;
+  transition:.4s;
+}
+.wheel span.active{
+  color:#ffeb3b;
+  text-shadow:0 0 12px #ffeb3b,0 0 25px #ff9800;
+  font-weight:600;
+}
+
+/* 🔺 INNER ARROW */
+.arrow{
+  position:absolute;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  font-size:26px;
+  color:#ffeb3b;
+  z-index:5;
+}
+
+/* CHAT */
+.chat{
+  height:120px;overflow:auto;
+  background:rgba(255,255,255,.1);
+  padding:8px;border-radius:16px;
+  font-size:.8rem;margin-top:8px
+}
+.msg{margin-bottom:6px}
+.reactions span{cursor:pointer;margin-left:4px}
+.emoji-bar span{cursor:pointer;font-size:18px;margin:0 4px}
+
+.footer{text-align:center;font-size:.7rem;opacity:.6;margin-top:6px}
+
+/* 🌟 MADE BY DHRUV */
+.made-by{
+  position:fixed;
+  top:14px;
+  right:16px;
+  font-family:'Great Vibes',cursive;
+  font-size:18px;
+  color:#ffd1dc;
+  text-shadow:0 0 6px rgba(255,105,180,.8),0 0 14px rgba(255,0,100,.6);
+  letter-spacing:1px;
+  z-index:9999;
+  pointer-events:none;
+  animation:glowPulse 3s ease-in-out infinite;
+}
+@keyframes glowPulse{
+  0%{opacity:.7}
+  50%{opacity:1}
+  100%{opacity:.7}
+}
+</style>
+</head>
+
+<body>
+<div class="made-by">MADE BY DHRUV ❤️</div>
+
+<div class="card">
+
+<h1>TRUTH • DARE</h1>
+
+<input id="name" placeholder="Player Name">
+<input id="room" placeholder="Room Code">
+
+<button onclick="createRoom()">CREATE ROOM</button>
+<button onclick="joinRoom()">JOIN ROOM</button>
+
+<div class="players" id="players"></div>
+
+<div class="wheel-box">
+  <div class="wheel" id="wheel"></div>
+  <div class="arrow">▲</div>
+</div>
+
+<button id="spinBtn" onclick="spin()">SPIN WHEEL</button>
+<div id="output">Waiting…</div>
+
+<div class="chat" id="chat"></div>
+
+<div class="emoji-bar">
+  <span onclick="quickEmoji('😂')">😂</span>
+  <span onclick="quickEmoji('🔥')">🔥</span>
+  <span onclick="quickEmoji('❤️')">❤️</span>
+</div>
+
+<input id="msg" placeholder="Type message" onkeydown="if(event.key==='Enter')sendMsg()">
+<button onclick="sendMsg()">SEND</button>
+
+<div class="footer">Host Controlled • Neon Mode ⚡</div>
+</div>
+
+<script>
+/* 🔥 FIREBASE CONFIG */
+firebase.initializeApp({
+  apiKey:"YOUR_API_KEY",
+  authDomain:"YOUR_PROJECT.firebaseapp.com",
+  databaseURL:"https://YOUR_PROJECT.firebaseio.com",
+  projectId:"YOUR_PROJECT"
+});
+const db=firebase.database();
+
+let playerName="",roomId="",isHost=false,rotation=0;
+let playersArr=[],spans=[];
+
+/* 🎯 DRAW WHEEL */
+function drawWheel(){
+  wheel.innerHTML="";
+  spans=[];
+  const n=playersArr.length;
+  if(!n) return;
+  const slice=360/n;
+
+  playersArr.forEach((p,i)=>{
+    const s=document.createElement("span");
+    s.innerText=p;
+    s.style.transform=`rotate(${i*slice}deg) translate(105px) rotate(90deg)`;
+    wheel.appendChild(s);
+    spans.push(s);
+  });
+}
+
+function createRoom(){
+  playerName=name.value;
+  roomId=Math.random().toString(36).substr(2,6);
+  room.value=roomId;
+  isHost=true;
+  db.ref("rooms/"+roomId).set({host:playerName,spin:0,selected:""});
+  joinRoom();
+}
+
+function joinRoom(){
+  if(!name.value||!room.value) return alert("Enter name & room");
+  playerName=name.value; roomId=room.value;
+
+  const ref=db.ref("rooms/"+roomId+"/players/"+playerName);
+  ref.set(true);
+  ref.onDisconnect().remove();
+
+  db.ref("rooms/"+roomId+"/host").on("value",s=>{
+    isHost=s.val()===playerName;
+    spinBtn.classList.toggle("locked",!isHost);
+  });
+
+  db.ref("rooms/"+roomId+"/players").on("value",s=>{
+    playersArr=[]; players.innerHTML="";
+    s.forEach(p=>{
+      playersArr.push(p.key);
+      players.innerHTML+=`<span>${p.key}</span>`;
+    });
+    drawWheel();
+  });
+
+  db.ref("rooms/"+roomId+"/spin").on("value",s=>{
+    if(s.exists()) wheel.style.transform=`rotate(${s.val()}deg)`;
+  });
+
+  db.ref("rooms/"+roomId+"/selected").on("value",s=>{
+    spans.forEach(x=>x.classList.remove("active"));
+    if(!s.exists()) return;
+    const idx=playersArr.indexOf(s.val());
+    if(idx>-1) spans[idx].classList.add("active");
+    output.innerText="👉 "+s.val()+" ki turn";
+  });
+
+  db.ref("rooms/"+roomId+"/chat").limitToLast(80).on("child_added",s=>{
+    const d=s.val();
+    chat.innerHTML+=`
+      <div class="msg">
+        <b style="color:#7df9ff">${d.name}</b>: ${d.text}
+        <div class="reactions">
+          <span onclick="react('${s.key}','😂')">😂</span>
+          <span onclick="react('${s.key}','🔥')">🔥</span>
+          <span onclick="react('${s.key}','❤️')">❤️</span>
+        </div>
+      </div>`;
+    chat.scrollTop=chat.scrollHeight;
+  });
+}
+
+function spin(){
+  if(!isHost||!playersArr.length) return;
+
+  const n=playersArr.length;
+  const slice=360/n;
+  const pick=Math.floor(Math.random()*n);
+
+  rotation+=360*5 + pick*slice + slice/2;
+  db.ref("rooms/"+roomId+"/spin").set(rotation);
+
+  setTimeout(()=>{
+    db.ref("rooms/"+roomId+"/selected")
+      .set(playersArr[n-1-pick]);
+  },4000);
+}
+
+/* CHAT */
+function sendMsg(){
+  if(!msg.value.trim()) return;
+  db.ref("rooms/"+roomId+"/chat").push({
+    name:playerName,text:msg.value
+  });
+  msg.value="";
+}
+function quickEmoji(e){msg.value+=e}
+function react(id,e){
+  db.ref("rooms/"+roomId+"/chat/"+id+"/text")
+    .transaction(t=>(t||"")+" "+e);
+}
+</script>
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyCtVdlsKvMIZRVGrxIHgNig8zSf4ZzzBe8",
+    authDomain: "truth-dare-online-9aa1d.firebaseapp.com",
+    projectId: "truth-dare-online-9aa1d",
+    storageBucket: "truth-dare-online-9aa1d.firebasestorage.app",
+    messagingSenderId: "178326902340",
+    appId: "1:178326902340:web:60ccfad4b4595e4d1d8e11"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+</script>
+</body>
+</html>
