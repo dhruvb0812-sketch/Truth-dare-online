@@ -199,18 +199,29 @@ function drawWheel(){
   });
 }
 
+/* ✅ CREATE ROOM */
 function createRoom(){
-  playerName=name.value;
-  roomId=Math.random().toString(36).substr(2,6);
-  room.value=roomId;
-  isHost=true;
-  db.ref("rooms/"+roomId).set({host:playerName,spin:0,selected:""});
+  playerName = name.value.trim();
+  if(!playerName) return alert("Please enter your name");
+
+  roomId = Math.random().toString(36).substr(2,6);
+  room.value = roomId;
+  isHost = true;
+
+  db.ref("rooms/"+roomId).set({
+    host: playerName,
+    spin: 0,
+    selected: ""
+  });
+
   joinRoom();
 }
 
+/* ✅ JOIN ROOM */
 function joinRoom(){
-  if(!name.value||!room.value) return alert("Enter name & room");
-  playerName=name.value; roomId=room.value;
+  playerName = name.value.trim();
+  roomId = room.value.trim();
+  if(!playerName || !roomId) return alert("Enter name & room code");
 
   const ref=db.ref("rooms/"+roomId+"/players/"+playerName);
   ref.set(true);
@@ -237,13 +248,13 @@ function joinRoom(){
   db.ref("rooms/"+roomId+"/selected").on("value", s => {
     spans.forEach(x=>x.classList.remove("active"));
     if(!s.exists()) return;
-    const idx=playersArr.indexOf(s.val());
-    if(idx>-1) spans[idx].classList.add("active");
-    output.innerText="👉 "+s.val()+" ki turn";
+    const idx = playersArr.indexOf(s.val());
+    if(idx > -1) spans[idx].classList.add("active");
+    output.innerText = s.exists() ? "👉 "+s.val()+" ki turn" : "Waiting…";
   });
 
   db.ref("rooms/"+roomId+"/chat").limitToLast(80).on("child_added", s => {
-    const d=s.val();
+    const d = s.val();
     chat.innerHTML+=`
       <div class="msg">
         <b style="color:#7df9ff">${d.name}</b>: ${d.text}
@@ -257,23 +268,23 @@ function joinRoom(){
   });
 }
 
+/* 🔥 SPIN WHEEL */
 function spin(){
-  if(!isHost||!playersArr.length) return;
+  if(!isHost || !playersArr.length) return;
 
-  const n=playersArr.length;
-  const slice=360/n;
-  const pick=Math.floor(Math.random()*n);
+  const n = playersArr.length;
+  const slice = 360/n;
+  const pick = Math.floor(Math.random()*n);
 
-  rotation+=360*5 + pick*slice + slice/2;
+  rotation += 360*5 + pick*slice + slice/2;
   db.ref("rooms/"+roomId+"/spin").set(rotation);
 
   setTimeout(()=> {
-    db.ref("rooms/"+roomId+"/selected")
-      .set(playersArr[n-1-pick]);
-  },4000);
+    db.ref("rooms/"+roomId+"/selected").set(playersArr[n-1-pick]);
+  }, 4000);
 }
 
-/* CHAT */
+/* 🔹 CHAT FUNCTIONS */
 function sendMsg(){
   if(!msg.value.trim()) return;
   db.ref("rooms/"+roomId+"/chat").push({
@@ -284,7 +295,7 @@ function sendMsg(){
 function quickEmoji(e){ msg.value+=e }
 function react(id,e){
   db.ref("rooms/"+roomId+"/chat/"+id+"/text")
-    .transaction(t=>(t||"")+" "+e);
+    .transaction(t => (t||"")+" "+e);
 }
 </script>
 </body>
